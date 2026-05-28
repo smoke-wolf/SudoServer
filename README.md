@@ -1,8 +1,8 @@
 # SudoServer
 
-built this because Claude Code kept getting stuck every time something needed `sudo` — the password prompt blocks the pipe and the whole thing hangs. adding a NOPASSWD entry to sudoers felt gross so this was the cleaner fix.
+if you run Claude Code with `--dangerously-skip-permissions` it still can't use `sudo` — the password prompt interrupts the pipe and breaks the flow. so even in full dangerous mode, anything that needs root just dies.
 
-you run `ss.sh` once with sudo, it gives you a token, you paste the token into Claude, and from there Claude can run root commands through it. every command and its output shows up live in the terminal you started it in so you can see exactly what's happening.
+this fixes that. you run `ss.sh` once with sudo upfront, it gives you a random token, you pass the token to Claude, and from there it can POST commands that run as root through the server. no more prompts mid-session. every command and its output shows up live in the terminal you started it in so you can see exactly what's going on.
 
 ---
 

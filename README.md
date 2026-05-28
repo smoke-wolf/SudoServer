@@ -1,92 +1,93 @@
 # SudoServer
 
-A minimal localhost HTTP bridge that lets Claude Code (or any tool) run `sudo` commands interactively — without needing a persistent TTY or password prompt mid-session.
+built this because Claude Code kept getting stuck every time something needed `sudo` — the password prompt blocks the pipe and the whole thing hangs. adding a NOPASSWD entry to sudoers felt gross so this was the cleaner fix.
 
-You run the server once with `sudo`. It prints a one-time token. You paste the token to Claude. Claude fires HTTP requests; they run as root and you see every command and its output live in your terminal.
-
----
-
-## Why
-
-Claude Code cannot call `sudo` interactively — the password prompt blocks the pipe. The normal workaround (NOPASSWD sudoers entries) is a permanent hole. SudoServer is a zero-config alternative: one `sudo` at startup, token-authenticated, localhost-only, and it dies when you Ctrl+C.
+you run `ss.sh` once with sudo, it gives you a token, you paste the token into Claude, and from there Claude can run root commands through it. every command and its output shows up live in the terminal you started it in so you can see exactly what's happening.
 
 ---
 
-## Quick start
+## setup
 
 ```bash
-# Terminal 1 — start the server
 sudo ./ss.sh
-
-# ══════════════════════════════════════════
-#   SudoServer on 127.0.0.1:7331
-#   Token: a3f8c2...
-#   Copy the token — Claude needs it.
-# ══════════════════════════════════════════
 ```
 
-Then tell Claude:
+```
+══════════════════════════════════════════
+  SudoServer on 127.0.0.1:7331
+  Token: a3f8c2d1e4b8...
+  Copy the token — Claude needs it.
+══════════════════════════════════════════
+```
 
-> The sudo server is running on port 7331 with token `a3f8c2...`
-
-Claude will POST commands to it. You will see every command and output live in Terminal 1.
+then just tell Claude the port and token. that's it.
 
 ---
 
-## Client (sc.sh)
+## using it from the terminal
+
+`sc.sh` is a thin bash wrapper if you want to send commands manually:
 
 ```bash
 export SS_TOKEN=a3f8c2...
-./sc.sh "df -h"
-./sc.sh "mount /dev/disk4s1 /mnt" /tmp
+./sc.sh "diskutil list"
+./sc.sh "mount -t tmpfs tmpfs /mnt" /tmp
 ```
 
-Or with raw curl:
+or raw curl if you prefer:
 
 ```bash
-curl -s -X POST http://127.0.0.1:7331   -H "X-Token: $SS_TOKEN"   -H "Content-Type: application/json"   -d '{"cmd":"whoami","cwd":"/tmp"}' | python3 -c "import json,sys; r=json.load(sys.stdin); print(r["stdout"])"
+curl -s -X POST http://127.0.0.1:7331 \
+  -H "X-Token: $SS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"cmd": "whoami", "cwd": "/tmp"}'
 ```
 
 ---
 
-## API
+## api
 
-POST /  — execute a command as root
+`POST /` — runs a command as root and returns output
 
-Headers: X-Token: <token>
+request body (JSON):
 
-Body (JSON):
-  cmd      string   shell command to run (required)
-  cwd      string   working directory (default /tmp)
-  stdin    string   data piped to stdin (optional)
-  timeout  int      seconds before kill (default 30)
+| field | type | default | notes |
+|-------|------|---------|-------|
+| `cmd` | string | — | the command to run (required) |
+| `cwd` | string | `/tmp` | working directory |
+| `stdin` | string | — | piped to the process |
+| `timeout` | int | `30` | seconds before it gets killed |
 
-Response (JSON):
-  exit     int      exit code
-  stdout   string   standard output
-  stderr   string   standard error
+response:
 
----
-
-## Security
-
-- Binds to 127.0.0.1 only
-- Token is openssl rand -hex 16, fresh each run, never stored
-- No persistence: kill the process, access is gone
-- Commands run as root — do not leave it running unattended
+```json
+{ "exit": 0, "stdout": "...", "stderr": "..." }
+```
 
 ---
 
-## Requirements
+## security stuff
 
-- macOS or Linux
-- Python 3 (stdlib only)
-- openssl
+- only binds to `127.0.0.1`, not reachable from the network
+- token is random (`openssl rand -hex 16`) every time you start it, never written to disk
+- kill the process and the access is gone, nothing persists
+- it runs commands as root so don't leave it sitting open when you're not using it
 
 ---
 
-## Custom port
+## requirements
+
+- python 3 (no pip installs, stdlib only)
+- openssl (already on macos and most linux)
+
+---
+
+## change the port
 
 ```bash
 SS_PORT=9000 sudo ./ss.sh
 ```
+
+---
+
+*built with [Claude](https://claude.ai)*
